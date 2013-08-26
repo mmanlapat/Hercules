@@ -4,6 +4,7 @@
 #ifndef _SCRIPT_H_
 #define _SCRIPT_H_
 
+#include "../common/cbasetypes.h"
 #include "map.h" //EVENT_NAME_LENGTH
 
 /**
@@ -16,6 +17,7 @@ struct eri;
  * Defines
  **/
 #define NUM_WHISPER_VAR 10
+#define SCRIPT_ARRAY_LEN_IDX SINT32_MAX - 1
 
 /**
  * Enumerations
@@ -115,7 +117,7 @@ struct script_retinfo {
 struct script_data {
 	enum c_op type;
 	union script_data_val {
-		int num;
+		int64 num;
 		char *str;
 		struct script_retinfo* ri;
 	} u;
@@ -178,12 +180,12 @@ struct script_state {
 };
 
 struct script_reg {
-	int index;
+	int64 index;
 	int data;
 };
 
 struct script_regstr {
-	int index;
+	int64 index;
 	char* data;
 };
 
@@ -286,9 +288,9 @@ struct script_label_entry {
 /// Returns the unique id of the reference (id and index)
 #define reference_getuid(data) ( (data)->u.num )
 /// Returns the id of the reference
-#define reference_getid(data) ( (int32)(reference_getuid(data) & 0x00ffffff) )
+#define reference_getid(data) ( (int64)(reference_getuid(data) & 0xFFFFFFFF) )
 /// Returns the array index of the reference
-#define reference_getindex(data) ( (int32)(((uint32)(reference_getuid(data) & 0xff000000)) >> 24) )
+#define reference_getindex(data) ( (int64)((reference_getuid(data) >> 32) & 0xFFFFFFFF) )
 /// Returns the name of the reference
 #define reference_getname(data) ( script->str_buf + script->str_data[reference_getid(data)].str )
 /// Returns the linked list of uid-value pairs of the reference (can be NULL)
@@ -299,7 +301,7 @@ struct script_label_entry {
 #define reference_getparamtype(data) ( script->str_data[reference_getid(data)].val )
 
 /// Composes the uid of a reference from the id and the index
-#define reference_uid(id,idx) ( (int32)((((uint32)(id)) & 0x00ffffff) | (((uint32)(idx)) << 24)) )
+#define reference_uid(id,idx) ( (int64) ((uint64)(id) & 0xFFFFFFFF) | ((uint64)(idx) << 32) )
 
 #define not_server_variable(prefix) ( (prefix) != '$' && (prefix) != '.' && (prefix) != '\'')
 #define not_array_variable(prefix) ( (prefix) != '$' && (prefix) != '@' && (prefix) != '.' && (prefix) != '\'' )
@@ -320,7 +322,6 @@ struct script_interface {
 	struct hQueue *hq;
 	struct hQueueIterator *hqi;
 	int hqs, hqis;
-	int hqe[HQO_MAX];
 	/*  */
 	char **buildin;
 	unsigned int buildin_count;
@@ -352,6 +353,8 @@ struct script_interface {
 	int potion_flag; //For use on Alchemist improved potions/Potion Pitcher. [Skotlex]
 	int potion_hp, potion_per_hp, potion_sp, potion_per_sp;
 	int potion_target;
+	/* */
+	bool skip_array_bound;
 	/*  */
 	void (*init) (void);
 	void (*final) (void);
@@ -364,13 +367,13 @@ struct script_interface {
 	void (*error) (const char* src, const char* file, int start_line, const char* error_msg, const char* error_pos);
 	/* */
 	bool (*addScript) (char *name, char *args, bool (*func)(struct script_state *st));
-	int (*conv_num) (struct script_state *st,struct script_data *data);
+	int32 (*conv_num) (struct script_state *st,struct script_data *data);
 	const char* (*conv_str) (struct script_state *st,struct script_data *data);
 	TBL_PC *(*rid2sd) (struct script_state *st);
 	void (*detach_rid) (struct script_state* st);
-	struct script_data* (*push_val)(struct script_stack* stack, enum c_op type, int val, struct DBMap** ref);
+	struct script_data* (*push_val)(struct script_stack* stack, enum c_op type, int64 val, struct DBMap** ref);
 	void (*get_val) (struct script_state* st, struct script_data* data);
-	void* (*get_val2) (struct script_state* st, int uid, struct DBMap** ref);
+	void* (*get_val2) (struct script_state* st, int64 uid, struct DBMap** ref);
 	struct script_data* (*push_str) (struct script_stack* stack, enum c_op type, char* str);
 	struct script_data* (*push_copy) (struct script_stack* stack, int pos);
 	void (*pop_stack) (struct script_state* st, int start, int end);
@@ -390,13 +393,14 @@ struct script_interface {
 	void (*free_state) (struct script_state* st);
 	void (*run_autobonus) (const char *autobonus,int id, int pos);
 	void (*cleararray_pc) (struct map_session_data* sd, const char* varname, void* value);
-	void (*setarray_pc) (struct map_session_data* sd, const char* varname, uint8 idx, void* value, int* refcache);
+	void (*setarray_pc) (struct map_session_data* sd, const char* varname, int32 idx, void* value, int* refcache);
 	int (*config_read) (char *cfgName);
 	int (*add_str) (const char* p);
 	const char* (*get_str) (int id);
 	int (*search_str) (const char* p);
 	void (*setd_sub) (struct script_state *st, struct map_session_data *sd, const char *varname, int elem, void *value, struct DBMap **ref);
 	void (*attach_state) (struct script_state* st);
+	void (*set_arraysize) (struct script_state* st, TBL_PC* sd, int64 num, const char* name, const void* value, struct DBMap** ref);
 	/* */
 	struct hQueue *(*queue) (int idx);
 	bool (*queue_add) (int idx, int var);
