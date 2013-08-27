@@ -14,6 +14,22 @@ struct view_data;
 
 struct unit_data npc_base_ud;
 
+enum npc_parse_options {
+	NPO_NONE	= 0x0,
+	NPO_ONINIT	= 0x1,
+	NPO_TRADER	= 0x2,
+};
+
+enum npc_shop_currency_types {
+	NSC_ZENY,
+	NSC_CHAR_VAR,
+	NSC_ACC_VAR,
+	NSC_INSTANCE_VAR,
+	NSC_ITEM,
+	/* */
+	NSC_MAX,
+};
+
 struct npc_timerevent_list {
 	int timer,pos;
 };
@@ -23,6 +39,13 @@ struct npc_label_list {
 };
 struct npc_item_list {
 	unsigned int nameid,value;
+};
+
+struct npc_shop_data {
+	struct npc_item_list *item;
+	int items;//count
+	int currency[2];/* npcs can have 2 currencies (official on cash shops), primary and secondary */
+	enum npc_shop_currency_types currency_type[2];
 };
 
 struct npc_data {
@@ -60,8 +83,11 @@ struct npc_data {
 			struct npc_timerevent_list *timer_event;
 			int label_list_num;
 			struct npc_label_list *label_list;
+			/* */
+			struct npc_shop_data *shop;
+			bool trader;
 		} scr;
-		struct {
+		struct {/* TODO duck this as soon as the new shop formatting is deemed stable */
 			struct npc_item_list* shop_item;
 			int count;
 		} shop;
@@ -190,6 +216,8 @@ int npc_cashshop_buylist(struct map_session_data *sd, int points, int count, uns
 int npc_do_atcmd_event(struct map_session_data* sd, const char* command, const char* message, const char* eventname);
 
 bool npc_unloadfile( const char* path );
+
+void npc_get_currency(struct map_session_data *sd, struct npc_data *nd, int *val1, int *val2);
 
 /* npc.c interface (barely started/WIP) */
 struct npc_interface {
